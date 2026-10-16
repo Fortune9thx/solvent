@@ -67,7 +67,9 @@ before comparison and enforces the product law:
 
 - no usable evidence ⇒ `INCONCLUSIVE`;
 - `FULL`/`HALF` with any triggered exclusion ⇒ `NONE`;
-- `FULL`/`HALF` with no breached clause ⇒ `NONE`.
+- `FULL`/`HALF` with no breached clause ⇒ `INCONCLUSIVE` (a malformed approval
+  fails safe and refunds the bond; it never slashes the claimant on an
+  unsubstantiated model output).
 
 Accounting is applied **only** to the agreed envelope, re-parsed in deterministic
 code — a non-deterministic value is never trusted to move money directly.
