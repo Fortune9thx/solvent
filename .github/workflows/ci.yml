@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest genvm-linter
+      - name: Bundle is reproducible
+        run: |
+          python contracts/build_bundle.py
+          git diff --exit-code -- contracts/build/Solvent.bundled.py
+      - name: Lint the bundle
+        run: genvm-lint lint contracts/build/Solvent.bundled.py
+      - name: Pure tests
+        run: python -m pytest tests -q -p no:gltest --ignore=tests/direct
+
+  direct:
+    runs-on: ubuntu-latest
+    # The pinned GenVM runner asset can 404 upstream from a cold runner; the
+    # suite runs where the runner is cached. Do not treat this as a defect.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest genlayer-test
+      - name: Direct-mode tests
+        run: python -m pytest tests/direct -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        run: npm --prefix frontend ci
+      - name: Build (typecheck + bundle)
+        run: npm --prefix frontend run build

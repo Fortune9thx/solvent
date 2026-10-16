@@ -1,0 +1,23 @@
+{
+  "_comment": "An address is recorded here ONLY after gen_getContractSchema (and get_config) confirm it is live. An empty address means not deployed, and the frontend fails closed on it.",
+  "studio_next": {
+    "chain_id": 61997,
+    "rpc": "https://studio-dev.genlayer.com/api",
+    "explorer": "https://explorer-studio-dev.genlayer.com",
+    "address": "0xff361d7458553fD82434B170c2A0E074aB9e4C7c",
+    "deploy_tx": "0x7d97a278e9710ab70fa25d778df695f8c4f06202b5e54206c3a2c9456581de6d",
+    "treasury": "0xC6E6d3b2acCaECeCeB40Ad4bD3dF123DDCB4e537",
+    "app": "https://solvent-fortune9thxs-projects.vercel.app",
+    "verified_live_at": "2026-10-16",
+    "verified_by": "gen_getContractSchema returned 16 methods (7 view, 9 write) and the expected ctor; get_config returned unit_face=100e18, max_units=5, claim_bond=5e18, fee_bps=500, max_judge_attempts=3, expiry_window_seconds=259200, treasury=0xC6E6...4537, 4 discrete decisions; get_policy returned the frozen text intact; get_solvency reported is_solvent=true at zero exposure; get_board returned an empty board. All checks PASS (deploy/verify.mjs).",
+    "superseded": [
+      {
+        "address": "0xB7fc34F974a64DD216b010212c7Dc970814aA148",
+        "tx": "0xf2dc60123a63caefef24fd90fdaea1cf9e0e0fc479f1cef2fd88e35491c11748",
+        "deployed_at": "2026-10-16T06:48:00Z",
+        "reason": "Deployed, live and schema-valid, but its frozen policy text was corrupted in transit: solventlib.canonicalize.sanitize_text replaced the literal word 'END' case-insensitively, turning 'independently' into 'indep ently' and so changing policy_hash. Fixed to strip only delimiter-impersonation tokens (brackets/fences), covered by a regression test, and redeployed to the address above."
+      }
+    ],
+    "deployed_at": "2026-10-16T06:55:43.562Z"
+  }
+}

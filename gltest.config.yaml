@@ -1,0 +1,14 @@
+# gltest network configuration for Solvent.
+# `artifacts` is gltest's own scratch directory (cleared on every run), which
+# is why the deployable bundle is written to contracts/build/ instead.
+networks:
+  default: localnet
+  localnet:
+    url: http://127.0.0.1:4000/api
+    id: 61999
+  studio_devnet:
+    url: https://studio-dev.genlayer.com/api
+    id: 61997
+paths:
+  contracts: contracts
+  artifacts: artifacts
