@@ -4,13 +4,19 @@
     "chain_id": 61997,
     "rpc": "https://studio-dev.genlayer.com/api",
     "explorer": "https://explorer-studio-dev.genlayer.com",
-    "address": "0xff361d7458553fD82434B170c2A0E074aB9e4C7c",
-    "deploy_tx": "0x7d97a278e9710ab70fa25d778df695f8c4f06202b5e54206c3a2c9456581de6d",
+    "address": "0xE2FA3894A64c8D5D354BFC48588ab7A5c7f4D45D",
+    "deploy_tx": "0xf50eb2456e5f69a75a6aa3e2742d8afb155083034f4e2977014a091cb1be0f61",
     "treasury": "0xC6E6d3b2acCaECeCeB40Ad4bD3dF123DDCB4e537",
     "app": "https://solvent-fortune9thxs-projects.vercel.app",
     "verified_live_at": "2026-10-16",
-    "verified_by": "gen_getContractSchema returned 16 methods (7 view, 9 write) and the expected ctor; get_config returned unit_face=100e18, max_units=5, claim_bond=5e18, fee_bps=500, max_judge_attempts=3, expiry_window_seconds=259200, treasury=0xC6E6...4537, 4 discrete decisions; get_policy returned the frozen text intact; get_solvency reported is_solvent=true at zero exposure; get_board returned an empty board. All checks PASS (deploy/verify.mjs).",
+    "verified_by": "gen_getContractSchema returned 16 methods (7 view, 9 write) and the expected ctor; get_config returned unit_face=100e18, max_units=5, claim_bond=5e18, fee_bps=500, max_judge_attempts=3, expiry_window_seconds=259200, treasury=0xC6E6...4537, 4 discrete decisions; get_policy returned the frozen text intact (policy_hash fc3000b4...); get_solvency reported is_solvent=true at zero exposure; get_board returned an empty board. All checks PASS (deploy/verify.mjs).",
     "superseded": [
+      {
+        "address": "0xff361d7458553fD82434B170c2A0E074aB9e4C7c",
+        "tx": "0x7d97a278e9710ab70fa25d778df695f8c4f06202b5e54206c3a2c9456581de6d",
+        "deployed_at": "2026-10-16T06:55:43Z",
+        "reason": "Deployed, live and schema-valid, but every on-chain fetch was silently empty: gl.nondet.web.Response.body is bytes (never str), and the leader fed it straight to sanitize_text(), which returns '' for any non-str. Every evidence item became '[EMPTY_RESPONSE]', so the real judge saw no evidence and every claim would have resolved INCONCLUSIVE. Hidden in direct tests because the mocked LLM answers regardless of the prompt (and the mock encodes its str body to bytes). Fixed with normalize_fetch_content() (decodes bytes, marks non-200), wired into leader_fn, covered by a content-flow regression test and a new validator-independence suite; redeployed to the address above."
+      },
       {
         "address": "0xB7fc34F974a64DD216b010212c7Dc970814aA148",
         "tx": "0xf2dc60123a63caefef24fd90fdaea1cf9e0e0fc479f1cef2fd88e35491c11748",
@@ -18,6 +24,6 @@
         "reason": "Deployed, live and schema-valid, but its frozen policy text was corrupted in transit: solventlib.canonicalize.sanitize_text replaced the literal word 'END' case-insensitively, turning 'independently' into 'indep ently' and so changing policy_hash. Fixed to strip only delimiter-impersonation tokens (brackets/fences), covered by a regression test, and redeployed to the address above."
       }
     ],
-    "deployed_at": "2026-10-16T06:55:43.562Z"
+    "deployed_at": "2026-10-16T08:07:50.474Z"
   }
 }

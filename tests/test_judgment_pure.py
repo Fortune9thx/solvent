@@ -33,8 +33,10 @@ def test_force_consistency_voided_by_exclusions():
     assert res["code"] == "VOIDED_BY_EXCLUSIONS"
 
 
-def test_force_consistency_no_clause_breached():
-    # If LLM says HALF but no clauses breached -> force NONE
+def test_force_consistency_no_clause_breached_fails_safe_to_inconclusive():
+    # If LLM says HALF but cites no clause, the approval is malformed and
+    # cannot be trusted: fail toward INCONCLUSIVE (bond refunded), never a
+    # punitive NONE that would slash the claimant on an unsubstantiated output.
     res = force_consistency(
         raw_decision="HALF",
         clause_ids=[],
@@ -42,8 +44,22 @@ def test_force_consistency_no_clause_breached():
         evidence_usable=[0],
         code="OUTAGE_ALLEGED",
     )
+    assert res["decision"] == "INCONCLUSIVE"
+    assert res["code"] == "INCOMPLETE_VERDICT"
+
+
+def test_force_consistency_exclusion_still_denies_even_without_clauses():
+    # A triggered exclusion is a real denial: NONE wins over the rule-4
+    # fail-safe, so an exclusion is never laundered into a refund.
+    res = force_consistency(
+        raw_decision="FULL",
+        clause_ids=[],
+        exclusion_ids=["EXC-FORCE-MAJEURE"],
+        evidence_usable=[0],
+        code="MET",
+    )
     assert res["decision"] == "NONE"
-    assert res["code"] == "NO_CLAUSE_BREACHED"
+    assert res["code"] == "VOIDED_BY_EXCLUSIONS"
 
 
 def test_parse_llm_judgment_response():

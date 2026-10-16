@@ -1,0 +1,11 @@
+# The deployable bundle and the contract sources must keep LF endings: the
+# first line is the bare `# { "Depends": ... }` comment the network reads, and
+# a CRLF checkout has silently broken a GenLayer deploy before. Force LF for
+# every text file so a checkout on any OS produces byte-identical sources.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

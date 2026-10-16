@@ -147,6 +147,7 @@ def validate_urls_list(urls: list[str]) -> tuple[bool, list[str], str]:
     return (True, canonical_urls, '')
 MAX_NARRATIVE_LENGTH = 1000
 MAX_POLICY_LENGTH = 8000
+DEFAULT_MAX_FETCH_CHARS = 4000
 FORBIDDEN_PATTERNS = [re.compile('`{3,}'), re.compile('\\[{2,}'), re.compile('\\]{2,}'), re.compile('<{3,}'), re.compile('>{3,}')]
 
 def sanitize_text(text: str, max_length: int) -> str:
@@ -160,6 +161,26 @@ def sanitize_text(text: str, max_length: int) -> str:
     if len(clean) > max_length:
         clean = clean[:max_length].rstrip()
     return clean
+
+def normalize_fetch_content(body, status=None, max_length: int=DEFAULT_MAX_FETCH_CHARS) -> str:
+    if status is not None:
+        try:
+            code = int(status)
+        except (ValueError, TypeError):
+            code = 0
+        if code and code != 200:
+            return '[HTTP_%d]' % code
+    if body is None:
+        return '[EMPTY_RESPONSE]'
+    if isinstance(body, (bytes, bytearray)):
+        try:
+            text = bytes(body).decode('utf-8', errors='replace')
+        except Exception:
+            text = ''
+    else:
+        text = str(body)
+    clean = sanitize_text(text, max_length)
+    return clean if clean else '[EMPTY_RESPONSE]'
 
 def compute_policy_hash(policy_text: str) -> str:
     sanitized = sanitize_text(policy_text, MAX_POLICY_LENGTH)
@@ -188,8 +209,8 @@ def force_consistency(raw_decision: str, clause_ids: list[str], exclusion_ids: l
         decision = DECISION_NONE
         clean_code = 'VOIDED_BY_EXCLUSIONS'
     if decision in (DECISION_FULL, DECISION_HALF) and (not clean_clauses):
-        decision = DECISION_NONE
-        clean_code = 'NO_CLAUSE_BREACHED'
+        decision = DECISION_INCONCLUSIVE
+        clean_code = 'INCOMPLETE_VERDICT'
     return {'clause_ids': clean_clauses, 'code': clean_code, 'decision': decision, 'evidence_usable': clean_usable, 'exclusion_ids': clean_exclusions}
 
 def parse_llm_judgment_response(raw_response: str) -> dict:
@@ -408,11 +429,9 @@ class Solvent(gl.contract.Contract):
                 else:
                     try:
                         page = gl.nondet.web.get(u)
+                        status = getattr(page, 'status', None)
                         body = getattr(page, 'body', None)
-                        if body is None:
-                            body = str(page)
-                        clean = sanitize_text(body, MAX_FETCH_CHARS)
-                        content = clean if clean else '[EMPTY_RESPONSE]'
+                        content = normalize_fetch_content(body, status, MAX_FETCH_CHARS)
                     except Exception:
                         content = '[FETCH_ERROR]'
                 items.append({'index': idx, 'url': u, 'content': content})

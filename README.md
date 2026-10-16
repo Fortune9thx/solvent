@@ -8,7 +8,7 @@ each validator fetches for itself over HTTPS?* — is settled by GenLayer
 consensus, never by the issuer and never by the claimant.
 
 - **Network:** GenLayer Studio Next / Studio Dev, chain **61997**
-- **Live contract:** `0xff361d7458553fD82434B170c2A0E074aB9e4C7c`
+- **Live contract:** `0xE2FA3894A64c8D5D354BFC48588ab7A5c7f4D45D`
 - **App:** https://solvent-fortune9thxs-projects.vercel.app
 - **Explorer:** https://explorer-studio-dev.genlayer.com
 
@@ -91,7 +91,7 @@ npm --prefix frontend ci && npm --prefix frontend run build
 
 `docs/STATUS.md` records exactly what was verified and when, including what was
 **not** exercised. The honest summary: the contract is deployed, schema-verified,
-and its full write/read surface passes 49 tests (26 pure + 23 real GenVM
+and its full write/read surface passes 59 tests (30 pure + 29 real GenVM
 direct-mode). The on-chain happy path (top-up → enroll → file → adjudicate →
 claim) has **not** yet been driven on the live chain; that is stated as a
 limitation, not implied to have passed.

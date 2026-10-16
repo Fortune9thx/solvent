@@ -9,7 +9,11 @@ from .accounting import (
     max_withdrawable,
     verify_solvency_invariant,
 )
-from .canonicalize import compute_policy_hash, sanitize_text
+from .canonicalize import (
+    compute_policy_hash,
+    normalize_fetch_content,
+    sanitize_text,
+)
 from .judgment import (
     build_adjudication_prompt,
     canonicalize_for_comparison,
@@ -28,6 +32,7 @@ __all__ = [
     "max_withdrawable",
     "sanitize_text",
     "compute_policy_hash",
+    "normalize_fetch_content",
     "validate_url",
     "validate_urls_list",
     "force_consistency",

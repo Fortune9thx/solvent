@@ -330,3 +330,95 @@ class TestClaimAndEscapes:
         uid = _enroll(funded, direct_vm, direct_alice)
         assert funded.expire_unit(unit_id=uid) == "EXPIRED"
         assert json.loads(funded.get_solvency())["live_units"] == "0"
+
+
+class TestFetchedEvidenceReachesTheJudge:
+    """The regression that matters: a fetched page must actually appear in the
+    judge's prompt. gl.nondet.web.Response.body is bytes, never str, so an
+    earlier build fed bytes to sanitize_text() (which returns "" for non-str);
+    every real fetch collapsed to "[EMPTY_RESPONSE]" and the on-chain judge saw
+    no evidence at all, silently resolving every claim INCONCLUSIVE. The mocked
+    LLM hid it, because it answers regardless of the prompt. This test only
+    passes if the retrieved page text is really in the prompt.
+    """
+
+    def test_web_text_flows_into_prompt(self, funded, direct_vm, direct_alice):
+        uid = _enroll(funded, direct_vm, direct_alice)
+        cid = _file(funded, direct_vm, direct_alice, uid)
+        direct_vm.mock_web(
+            r".*", {"method": "GET", "status": 200, "body": PAGE_BODY}
+        )
+        # This mock answers ONLY if the page text is in the prompt. If fetch
+        # content collapsed, nothing matches, exec_prompt yields nothing, and
+        # the claim comes back INCONCLUSIVE instead of FULL.
+        direct_vm.mock_llm(r".*unavailable for 9 hours.*", _verdict("FULL"))
+        assert funded.adjudicate(claim_id=cid) == "FULL"
+
+    def test_non_200_page_is_not_treated_as_evidence(self, funded, direct_vm, direct_alice):
+        uid = _enroll(funded, direct_vm, direct_alice)
+        cid = _file(funded, direct_vm, direct_alice, uid)
+        # The page 404s; a judge that honestly declines to find evidence on a
+        # non-200 response yields INCONCLUSIVE. (The marker, not the 404 body,
+        # is what the judge sees.)
+        direct_vm.mock_web(r".*", {"method": "GET", "status": 404, "body": "gone"})
+        direct_vm.mock_llm(
+            r".*", _verdict("FULL", evidence_usable=[])
+        )
+        assert funded.adjudicate(claim_id=cid) == "INCONCLUSIVE"
+
+
+class TestValidatorIndependence:
+    """Run the REAL captured validator closure from the contract's own
+    gl.vm.run_nondet call, with the mocks swapped underneath it so the
+    validator's independent re-fetch and re-prompt see different data than the
+    leader did. This is the property the product rests on: a leader cannot get
+    a verdict believed merely by asserting it. gltest's direct mode never
+    invokes validator_fn during the normal call, so without these the validator
+    is untested -- and a validator that always returns False (denying every
+    honest leader) would pass every other test in this file.
+    """
+
+    def _decided(self, funded, direct_vm, alice, decision="FULL"):
+        uid = _enroll(funded, direct_vm, alice)
+        cid = _file(funded, direct_vm, alice, uid)
+        _adjudicate(funded, direct_vm, cid, decision)
+        return cid
+
+    def test_validator_accepts_an_honest_leader(self, funded, direct_vm, direct_alice):
+        self._decided(funded, direct_vm, direct_alice)
+        assert direct_vm.run_validator() is True
+
+    def test_validator_rejects_a_leader_it_cannot_reproduce(
+        self, funded, direct_vm, direct_alice
+    ):
+        self._decided(funded, direct_vm, direct_alice, "FULL")
+        direct_vm.clear_mocks()
+        direct_vm.mock_web(
+            r".*", {"method": "GET", "status": 200, "body": PAGE_BODY}
+        )
+        # This validator's own independent work says NONE, not FULL.
+        direct_vm.mock_llm(r".*", _verdict("NONE"))
+        assert direct_vm.run_validator() is False
+
+    def test_validator_rejects_a_fabricated_envelope(self, funded, direct_vm, direct_alice):
+        self._decided(funded, direct_vm, direct_alice, "FULL")
+        fabricated = json.dumps(
+            {
+                "decision": "NONE",
+                "clause_ids": ["SLA-1"],
+                "exclusion_ids": [],
+                "evidence_usable": [0],
+                "code": "PROVEN",
+            }
+        )
+        # With unchanged mocks the pure validator accepts the real envelope, so
+        # a fabricated one is rejected because it diffs -- not because the
+        # validator is broken shut.
+        assert direct_vm.run_validator() is True
+        assert direct_vm.run_validator(leader_result=fabricated) is False
+
+    def test_validator_rejects_unparseable_leader_output(
+        self, funded, direct_vm, direct_alice
+    ):
+        self._decided(funded, direct_vm, direct_alice)
+        assert direct_vm.run_validator(leader_result="not json at all") is False

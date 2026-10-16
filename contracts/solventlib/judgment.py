@@ -26,9 +26,13 @@ def force_consistency(
       1. Decision must be in VALID_DECISIONS. Default to INCONCLUSIVE if unknown.
       2. If evidence_usable is empty -> decision MUST be INCONCLUSIVE (code: NO_USABLE_EVIDENCE).
       3. If decision is FULL or HALF, but exclusions are present and triggered ->
-         force decision to NONE (code: VOIDED_BY_EXCLUSIONS) or INCONCLUSIVE.
-      4. If decision is FULL or HALF, but no clauses were breached ->
-         force decision to NONE (code: NO_CLAUSE_BREACHED).
+         force decision to NONE (code: VOIDED_BY_EXCLUSIONS).
+      4. If decision is FULL or HALF, but no clauses were breached -> the
+         approval is malformed and cannot be trusted, so force INCONCLUSIVE
+         (code: INCOMPLETE_VERDICT). This refunds the bond; it never slashes a
+         claimant on the strength of an unsubstantiated model output. The
+         safety direction is one-way toward INCONCLUSIVE, never toward a
+         punitive NONE.
       5. Clause IDs and Exclusion IDs must be sorted and deduplicated.
       6. evidence_usable must be sorted deduplicated integers.
     """
@@ -63,10 +67,11 @@ def force_consistency(
         decision = DECISION_NONE
         clean_code = "VOIDED_BY_EXCLUSIONS"
 
-    # Rule 4: Claim approved without clauses breached
+    # Rule 4: approval with no clause cited is malformed -> INCONCLUSIVE
+    # (bond refunded), never a punitive NONE. Safety fails toward unsure.
     if decision in (DECISION_FULL, DECISION_HALF) and not clean_clauses:
-        decision = DECISION_NONE
-        clean_code = "NO_CLAUSE_BREACHED"
+        decision = DECISION_INCONCLUSIVE
+        clean_code = "INCOMPLETE_VERDICT"
 
     return {
         "clause_ids": clean_clauses,

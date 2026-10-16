@@ -310,11 +310,11 @@ class Solvent(gl.contract.Contract):
                 else:
                     try:
                         page = gl.nondet.web.get(u)
+                        status = getattr(page, "status", None)
                         body = getattr(page, "body", None)
-                        if body is None:
-                            body = str(page)
-                        clean = sanitize_text(body, MAX_FETCH_CHARS)
-                        content = clean if clean else "[EMPTY_RESPONSE]"
+                        content = normalize_fetch_content(
+                            body, status, MAX_FETCH_CHARS
+                        )
                     except Exception:
                         content = "[FETCH_ERROR]"
                 items.append({"index": idx, "url": u, "content": content})

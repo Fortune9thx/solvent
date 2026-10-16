@@ -7,12 +7,12 @@ _Last updated: 2026-10-16._
 
 ## Live
 
-- **Contract:** `0xff361d7458553fD82434B170c2A0E074aB9e4C7c` on GenLayer Studio
+- **Contract:** `0xE2FA3894A64c8D5D354BFC48588ab7A5c7f4D45D` on GenLayer Studio
   Next (chain 61997).
-- **Deploy tx:** `0x7d97a278e9710ab70fa25d778df695f8c4f06202b5e54206c3a2c9456581de6d`
-  (consensus `ACCEPTED`, `FINISHED_WITH_RETURN`).
-- **Bundle:** `contracts/build/Solvent.bundled.py`, 26 296 bytes,
-  sha256 `82a4d16889261f96c3875939cd75248c0b1d8317a88b34061001fb23b43e0e5a`.
+- **Deploy tx:** `0xf50eb2456e5f69a75a6aa3e2742d8afb155083034f4e2977014a091cb1be0f61`
+  (consensus `ACCEPTED`/`FINALIZED`, 3/3 validator `AGREE`).
+- **Bundle:** `contracts/build/Solvent.bundled.py`, 26 914 bytes,
+  sha256 `393e500bee5f403bf932a597c9d7dd8e16de6531ca645c7a67c929aec2866ea8`.
 - **App:** https://solvent-fortune9thxs-projects.vercel.app (public;
   Deployment Protection SSO disabled). The deployed JS bundle was confirmed to
   contain the address above, so `VITE_CONTRACT_ADDRESS` was inlined at build.
@@ -26,22 +26,33 @@ _Last updated: 2026-10-16._
 | `node deploy/probe_schema.mjs` (free) | PASS — schema + runner/Depends resolve on 61997 |
 | `node deploy/verify.mjs` (free) | PASS — 16 methods; all frozen constants match; policy text intact |
 | `node deploy/smoke.mjs` (live write, bounded) | PASS — see below |
-| `python -m pytest tests` (pure) | 26 passed |
-| `python -m pytest tests/direct` (real GenVM) | 23 passed |
+| `python -m pytest tests` (pure) | 30 passed |
+| `python -m pytest tests/direct` (real GenVM) | 29 passed |
 | `npm --prefix frontend run build` | PASS (tsc + vite) |
 
 ### What the direct tests actually exercise
 
-The 23 direct-mode tests deploy the **real bundle** into a GenVM sandbox and
+The 29 direct-mode tests deploy the **real bundle** into a GenVM sandbox and
 drive: deploy + config + policy hash; solvency at enrollment; `MAX_UNITS`;
 bond floor; beneficiary-only filing; one-open-claim; URL/SSRF and narrative
 validation; `FULL`/`HALF`/`NONE`/`INCONCLUSIVE` accounting and pool conservation;
-force-consistency (empty evidence ⇒ `INCONCLUSIVE`; exclusion ⇒ `NONE`);
+force-consistency (empty evidence ⇒ `INCONCLUSIVE`; exclusion ⇒ `NONE`; a
+`FULL`/`HALF` with no clause cited ⇒ `INCONCLUSIVE`, not a punitive `NONE`);
 `claim()` single-draw then `NOTHING_TO_CLAIM`; the 72h stale-cancel path via
 `direct_vm.warp`; the withdraw floor; and `expire_unit`.
 
+Two further direct-mode suites guard the nondet boundary specifically:
+
+- **Fetched evidence reaches the judge** — a mock LLM that answers *only when
+  the retrieved page text is present in the prompt*; it fails if a fetch
+  collapses to `[EMPTY_RESPONSE]`.
+- **Validator independence** — runs the real captured `validator_fn` via
+  `direct_vm.run_validator()`, proving it accepts an honest leader and rejects a
+  leader whose verdict it cannot reproduce (a validator that always denied would
+  otherwise pass every other test).
+
 They run **where the pinned GenVM runner is cached**. On this machine the runner
-resolved, so all 23 executed and passed. From a cold machine the direct suite may
+resolved, so all 29 executed and passed. From a cold machine the direct suite may
 be unable to fetch the runner asset; that is upstream, not a defect here. Do not
 downgrade the claim to "only the pure tests ran" in an environment where the
 direct suite was not attempted — run it and report what happened.
@@ -81,7 +92,12 @@ refusal is evidenced by the `FINISHED_WITH_ERROR` write result.
   it has not been exercised end-to-end against the live contract in a wallet
   session.
 
-## A real defect found and fixed during this build
+## Real defects found and fixed during this build
+
+Two deployments were superseded; both failures were in code, and both are
+recorded with their reason in `deploy/deployments.json`.
+
+### Defect 1 — policy text corrupted in transit (fixed)
 
 The first deployment (`0xB7fc34F974a64DD216b010212c7Dc970814aA148`) succeeded and
 passed schema checks, but its **frozen policy text was corrupted**: the
@@ -92,6 +108,24 @@ delimiter-impersonation tokens (bracket/fence sequences), a regression test was
 added (`test_sanitize_text_preserves_ordinary_words`), and the contract was
 redeployed to the current address. The superseded address and reason are recorded
 in `deploy/deployments.json`.
+
+### Defect 2 — every on-chain fetch was silently empty (fixed; found by audit)
+
+The second deployment (`0xff361d7458553fD82434B170c2A0E074aB9e4C7c`) was live and
+schema-valid, but functionally broken: `gl.nondet.web.Response.body` is **`bytes`**,
+never `str`, and the leader fed it straight to `sanitize_text()`, which returns
+`""` for any non-str. Every evidence item became `[EMPTY_RESPONSE]`, so the real
+judge saw no evidence and **every claim would have resolved `INCONCLUSIVE`** — the
+product could never pay a valid claim. It was invisible to the test suite because
+the mocked LLM answers regardless of the prompt (and gltest's web mock encodes its
+`str` body to `bytes` before the contract sees it). **Fix:** a pure
+`normalize_fetch_content(body, status)` decodes bytes and marks non-200 responses
+(`[HTTP_404]`), wired into `leader_fn`; covered by a content-flow test that only
+passes when the fetched page text is actually in the judge's prompt. A related
+fail-safe was also corrected: a `FULL`/`HALF` with no clause cited now forces
+`INCONCLUSIVE` (bond refunded) rather than a punitive `NONE` (bond slashed on an
+unsubstantiated model output). `[FETCH_ERROR]`/status handling keeps a 404 error
+page from being read as evidence. Redeployed to the current address.
 
 ## Toolchain
 

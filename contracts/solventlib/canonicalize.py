@@ -6,6 +6,7 @@ import re
 
 MAX_NARRATIVE_LENGTH = 1000
 MAX_POLICY_LENGTH = 8000
+DEFAULT_MAX_FETCH_CHARS = 4000
 
 # Delimiter-impersonation tokens. The adjudication prompt wraps untrusted
 # content between its own markers ([[POLICY_START]] ... [[POLICY_END]] and the
@@ -48,6 +49,43 @@ def sanitize_text(text: str, max_length: int) -> str:
         clean = clean[:max_length].rstrip()
 
     return clean
+
+
+def normalize_fetch_content(
+    body, status=None, max_length: int = DEFAULT_MAX_FETCH_CHARS
+) -> str:
+    """
+    Turns a gl.nondet.web response into bounded, sanitized evidence text.
+
+    The SDK's Response.body is `bytes | None`, never str. Passing bytes
+    straight to sanitize_text() (which returns "" for any non-str) would
+    silently collapse every real fetch to the empty string and force every
+    on-chain adjudication to INCONCLUSIVE -- a bug the mocked LLM hides, since
+    it answers regardless of the prompt. Decode here so the judge actually
+    sees the page. A non-200 response is marked as non-evidence rather than
+    being fed to the judge as if it were content.
+    """
+    if status is not None:
+        try:
+            code = int(status)
+        except (ValueError, TypeError):
+            code = 0
+        if code and code != 200:
+            return "[HTTP_%d]" % code
+
+    if body is None:
+        return "[EMPTY_RESPONSE]"
+
+    if isinstance(body, (bytes, bytearray)):
+        try:
+            text = bytes(body).decode("utf-8", errors="replace")
+        except Exception:
+            text = ""
+    else:
+        text = str(body)
+
+    clean = sanitize_text(text, max_length)
+    return clean if clean else "[EMPTY_RESPONSE]"
 
 
 def compute_policy_hash(policy_text: str) -> str:
